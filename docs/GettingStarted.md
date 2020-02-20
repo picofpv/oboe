@@ -153,42 +153,40 @@ open 音频流：
 请注意，此示例代码使用了 [logging macros from here](https://github.com/googlesamples/android-audio-high-performance/blob/master/debug-utils/logging_macros.h).
 
 ## 播放音频
-Check the properties of the created stream. If you did not specify a channelCount, sampleRate, or format then you need to 
-query the stream to see what you got. The **format** property will dictate the `audioData` type in the `AudioStreamCallback::onAudioReady` callback. If you did specify any of those three properties then you will get what you requested.
+检查创建的音频流的属性。如果未指定 channelCount, sampleRate, 或 format 那么你需要查询流以查看这些属性的具体内容。 The **format** 属性将决定 `audioData` 类型 in the `AudioStreamCallback::onAudioReady` callback. 如果您确实指定了这三个属性中的任何一个，那么您将得到您所要求的。
 
     oboe::AudioFormat format = stream->getFormat();
     LOGI("AudioStream format is %s", oboe::convertToText(format));
 
-Now start the stream.
+现在，通过 requestStart() 开始播放。
 
     managedStream->requestStart();
 
-At this point you should start receiving callbacks.
+此时，您应该开始接收回调。
 
-To stop receiving callbacks call
+要停止接收回调，停止播放，需要通过 requestStop()
     
     managedStream->requestStop();
 
 ## 关闭 音频流
-It is important to close your stream when you're not using it to avoid hogging audio resources which other apps could use. This is particularly true when using `SharingMode::Exclusive` because you might prevent other apps from obtaining a low latency audio stream.
+在不使用流时，请务必关闭流，以免占用其他应用程序可能要用的音频资源。使用 `SharingMode::Exclusive` 独占模式时尤其如此 ， 因为您可能会阻止其他应用获取低延迟的音频流。反之，如果你就是觉得自己最重要，就占着吧。
 
-Streams can be explicitly closed:
+可以显式的去关闭流，用 close()：
 
     stream->close();
 
-`close()` is a blocking call which also stops the stream.
+`close()` is a blocking call 这也将阻止音频流。
 
-Streams can also be automatically closed when going out of scope:
+超出范围时，音频流也可以自动关闭：
 
 	{
 		ManagedStream mStream;
 		AudioStreamBuilder().build(mStream);
 		mStream->requestStart();
-	} // Out of this scope the mStream has been automatically closed 
+	} // 超出此范围的mStream已自动关闭
 	
-It is preferable to let the `ManagedStream` object go out of scope (or be explicitly deleted) when the app is no longer playing audio.
-For apps which only play or record audio when they are in the foreground this is usually done when [`Activity.onPause()`](https://developer.android.com/guide/components/activities/activity-lifecycle#onpause) is called.
-
+当应用不再播放音频时,最好让 `ManagedStream` 对象超出范围 (或被明确删除) .
+对于仅在前台播放或录制音频的应用 , 通常在 [`Activity.onPause()`](https://developer.android.com/guide/components/activities/activity-lifecycle#onpause) 情况下停止播放。 
 ## 重新配置 音频流
 In order to change the configuration of the stream, simply call `openManagedStream`
 again. The existing stream is closed, destroyed and a new stream is built and
