@@ -1,44 +1,43 @@
 [Oboe Docs Home](README.md)
 
-# Tech Note: Disconnected Streams
+# 技术说明: 断开音频流
 
-When Oboe is using **OpenSL ES**, and a headset is plugged in or out, then OpenSL ES will automatically switch between devices.
-This is convenient but can cause problems because the new device may have different burst sizes and different latency.
+当 Oboe 使用 **OpenSL ES**, 并且耳机已插入或拔出, 则OpenSL ES将自动在设备之间切换。
+这很方便，但是会引起问题，因为新设备可能具有不同的突发大小和不同的延迟。
 
-When Oboe is using **AAudio**, and a headset is plugged in or out, then
-the stream is no longer available and becomes "disconnected".
-The app will then be notified in one of two ways. 
+当 Oboe 使用 **AAudio**, 且耳机已插入或拔出， 则该流不再可用，并变为“断开连接”。
+然后，将通过以下两种方式之一通知该应用。
 
-1) If the app is using a callback then the AudioStreamCallback object will be called.
-It will launch a thread, which will call onErrorBeforeClose().
-Then it stops and closes the stream.
-Then onErrorAfterClose() will be called.
-An app may choose to reopen a stream in the onErrorAfterClose() method.
+1) 如果应用程序使用回调，则将调用AudioStreamCallback对象。
+它将启动一个线程，该线程将调用onErrorBeforeClose（）。
+随后 它停止并关闭流。
+之后 将调用onErrorAfterClose（）。
+应用程序可以选择使用onErrorAfterClose（）方法重新打开流。
+这是一连串组合操作，你可以在这个流程里处理可能出现的问题。
 
-2) If an app is using read()/write() calls then they will return an error when a disconnect occurs.
-The app should then stop() and close() the stream.
-An app may then choose to reopen a stream.
+2) 如果应用程序正在使用read（）/write（）调用，则在断开连接时它们将返回错误。
+该应用程序会 stop() 和 close() 音频流。
+然后，应用程序可以选择重新打开流。
 
-## Workaround for not Disconnecting Properly
+## 不能正确断开连接的解决方法
 
-On some versions of Android the disconnect message does not reach AAudio and the app will not
-know that the device has changed. There is a "Test Disconnects" option in
-[OboeTester](https://github.com/google/oboe/tree/master/apps/OboeTester/docs)
-that can be used to diagnose this problem.
+在某些版本的Android上，断开连接消息无法到达AAudio，并且该应用程序无法
+知道设备已更改。在[OboeTester](https://github.com/google/oboe/tree/master/apps/OboeTester/docs) 的“测试断开连接”选项中
+有一段示例代码，你可以拿来主义，这段代码可以用来诊断这个问题。
 
-As a workaround you can listen for a Java Intent.HEADSET_PLUG, which is fired when a head set is plugged in or out.
+作为一种解决方法，您可以侦听Java Intent.HEADSET_PLUG，当插入、拔下耳机时会触发该事件。
 
-    // Receive a broadcast Intent when a headset is plugged in or unplugged.
+    // 插入或拔出耳机时，接收广播的Intent。
     public class PluginBroadcastReceiver extends BroadcastReceiver {
         @Override
         public void onReceive(Context context, Intent intent) {
-            // Close the stream if it was not disconnected.
+            // 如果未断开连接，请关闭流。
         }
     }
     
     private BroadcastReceiver mPluginReceiver = new PluginBroadcastReceiver();
     
-You can register for the Intent when your app resumes and unregister when it pauses.
+您可以在应用 Resume 时注册Intent，而在其 Pause 时注销。
     
     @Override
     public void onResume() {

@@ -1,121 +1,121 @@
-# Getting Started
-The easiest way to start using Oboe is to build it from source by adding a few steps to an existing Android Studio project.
+# 1. 入门
+开始使用Oboe的最简单方法是通过向现有 Android Studio 项目添加一些步骤来从源代码构建它。
 
-## Creating an Android app with native support
-+ Create a new project: `File > New > New Project`
-+ When selecting the project type, select Native C++
-+ Finish configuring project
+## 创建具有 Native 支持的 Android 应用
++ 创建一个新项目: `File > New > New Project`
++ 选择项目类型时，选择 Native C++
++ 完成配置项目
 
-## Adding Oboe to your project
+## 将 Oboe 添加到您的项目
 
-### 1. Clone the github repository
-Start by cloning the [latest stable release](https://github.com/google/oboe/releases/) of the Oboe repository, for example:
+### 1. 克隆github 上的 Oboe 库
+首先克隆 Oboe 库的[最新稳定版本](https://github.com/google/oboe/releases/) , 例如:
 
     git clone -b 1.3-stable https://github.com/google/oboe
 
-**Make a note of the path which you cloned oboe into - you will need it shortly**
+**记下 Oboe 克隆的路径-您很快将需要它**
 
-If you use git as your version control system, consider adding Oboe as a [submodule](https://gist.github.com/gitaarik/8735255)  (underneath your
-cpp directory)
+如果您使用 git 作为版本控制系统， 考虑将 Oboe 添加为[submodule](https://gist.github.com/gitaarik/8735255)  (在你的
+ cpp 目录下)
 
-```
-git submodule add https://github.com/google/oboe
-```
+    git submodule add https://github.com/google/oboe
 
-This makes it easier to integrate updates to Oboe into your app, as well as contribute to the Oboe project.
+这样可以更轻松地将 Oboe 的更新集成到您的应用中，并为 Oboe 项目做出贡献。
 
-### 2. Update CMakeLists.txt
-Open your app's `CMakeLists.txt`. This can be found under `External Build Files` in the Android project view. If you don't have a `CMakeLists.txt` you will need to [add C++ support to your project](https://developer.android.com/studio/projects/add-native-code).
+### 2. 更新 CMakeLists.txt
+打开您应用的 `CMakeLists.txt`. 这文件可以在 `External Build Files` 在Android的项目视图下面找到. 如果您没有 `CMakeLists.txt` 文件，您将需要 [为您的项目添加 C++ 支持](https://developer.android.com/studio/projects/add-native-code).
 
 ![CMakeLists.txt location in Android Studio](images/cmakelists-location-in-as.png "CMakeLists.txt location in Android Studio")
 
-Now add the following commands to the end of `CMakeLists.txt`. **Remember to update `**PATH TO OBOE**` with your local Oboe path from the previous step**:
+现在，将以下命令添加到 `CMakeLists.txt` 文件里. **记住要用刚才我要你记下的 Oboe 路径去更新 `**PATH TO OBOE**` **:
 
-    # Set the path to the Oboe directory.
+    # 设置 Oboe 目录的路径。
     set (OBOE_DIR ***PATH TO OBOE***)
 
-    # Add the Oboe library as a subdirectory in your project.
-    # add_subdirectory tells CMake to look in this directory to
-    # compile oboe source files using oboe's CMake file.
-    # ./oboe specifies where the compiled binaries will be stored
+    # 将Oboe库添加为项目中的子目录。
+    # 指定 add_subdirectory ，告诉 CMake 去在此目录中查找 Oboe 的 CMake 文件以编译 Oboe 源文件。
+    # ./oboe 这个是指定编译后的二进制文件的存储位置（一开始clone后是没有./oboe的）
     add_subdirectory (${OBOE_DIR} ./oboe)
 
-    # Specify the path to the Oboe header files.
+    # 指定 Oboe 的 headers 文件路径。
     # This allows targets compiled with this CMake (application code)
-    # to see public Oboe headers, in order to access its API.
+    # 添加 Oboe headers 以顺利访问其 API。
     include_directories (${OBOE_DIR}/include)
 
 
-In the same file find the [`target_link_libraries`](https://cmake.org/cmake/help/latest/command/target_link_libraries.html) command.
-Add `oboe` to the list of libraries which your app's library depends on. For example:
+在同一文件中找到 [`target_link_libraries`](https://cmake.org/cmake/help/latest/command/target_link_libraries.html) 命令段.
+添加 `oboe` 到应用程序库所依赖的库列表中。例如：
 
     target_link_libraries(native-lib oboe)
 
-Here's a complete example `CMakeLists.txt` file:
+这是一个完整的 `CMakeLists.txt` 文件例子:
 
     cmake_minimum_required(VERSION 3.4.1)
 
-    # Build our own native library
+    # Build 我们自己的原生库
     add_library (native-lib SHARED native-lib.cpp )
 
-    # Build the Oboe library
+    # Build Oboe 库（这个库 clone 到 cpp 目录下）
     set (OBOE_DIR ./oboe)
     add_subdirectory (${OBOE_DIR} ./oboe)
 
-    # Make the Oboe public headers available to our app
+    # 使 Oboe 的公共头文件可用，方便我们在应用程序里调用
     include_directories (${OBOE_DIR}/include)
 
-    # Specify the libraries which our native library is dependent on, including Oboe
+    # 指定我们的本机库所依赖的库, 也包括 Oboe（这里指定了3个，一个自己的库，一个log库，一个oboe库）
     target_link_libraries (native-lib log oboe)
 
 
-Now go to `Build->Refresh Linked C++ Projects` to have Android Studio index the Oboe library.
+现在，通过菜单 `Build->Refresh Linked C++ Projects` 命令，使 Android Studio 为 Oboe 库编制索引。
 
-Verify that your project builds correctly. If you have any issues building please [report them here](issues/new).
+验证您的项目正确构建。 如果您有任何建筑问题，请 [在这里报告](issues/new).
 
-# Using Oboe
-Once you've added Oboe to your project you can start using Oboe's features. The simplest, and probably most common thing you'll do in Oboe is to create an audio stream.
+# 2. 使用 Oboe
+将 Oboe 添加到项目中后，即可开始使用 Oboe 的功能。在 Oboe 中，最简单，可能也是最常见的事情是创建音频流。
 
-## Creating an audio stream
-Include the Oboe header:
+## 创建音频流
+引入 Oboe 的头文件:
 
     #include <oboe/Oboe.h>
     
-Streams are built using an `AudioStreamBuilder`. Create one like this:
+音频流通过使用 `AudioStreamBuilder` 构建器来创建. 具体就像这样:
 
     oboe::AudioStreamBuilder builder;
 
-Use the builder's set methods to set properties on the stream (you can read more about these properties in the [full guide](FullGuide.md)):
+使用构建器的set方法设置音频流的一些属性 (您可以在  [完整指南](FullGuide.md) 中阅读有关这些属性的更多信息):
 
+```c++
     builder.setDirection(oboe::Direction::Output);
     builder.setPerformanceMode(oboe::PerformanceMode::LowLatency);
     builder.setSharingMode(oboe::SharingMode::Exclusive);
     builder.setFormat(oboe::AudioFormat::Float);
     builder.setChannelCount(oboe::ChannelCount::Mono);
-
-The builder's set methods return a pointer to the builder. So they can be easily chained:
-
-```
-oboe::AudioStreamBuilder builder;
-builder.setPerformanceMode(oboe::PerformanceMode::LowLatency)
-  ->setSharingMode(oboe::SharingMode::Exclusive)
-  ->setCallback(myCallback)
-  ->setFormat(oboe::AudioFormat::Float);
 ```
 
-Define an `AudioStreamCallback` class to receive callbacks whenever the stream requires new data.
+构建器的set方法返回指向构建器的指针。这样就可以轻松地将它们链接起来：
 
+```c++
+    oboe::AudioStreamBuilder builder;
+    builder.setPerformanceMode(oboe::PerformanceMode::LowLatency)
+        ->setSharingMode(oboe::SharingMode::Exclusive)
+        ->setCallback(myCallback)
+        ->setFormat(oboe::AudioFormat::Float);
+```
+
+定义一个 `AudioStreamCallback` 类，在音频流饿了，需要新数据时提供数据。
+
+```c++
     class MyCallback : public oboe::AudioStreamCallback {
     public:
         oboe::DataCallbackResult
         onAudioReady(oboe::AudioStream *audioStream, void *audioData, int32_t numFrames) {
             
-            // We requested AudioFormat::Float so we assume we got it.
-            // For production code always check what format
-            // the stream has and cast to the appropriate type.
+            // 我们请求了 AudioFormat::Float 这里我们假设我们已经有数据了。
+            // 对于生产代码，请始终检查数据格式
+            // 音频流有且会强制把数据转换为适当的类型。
             auto *outputData = static_cast<float *>(audioData);
 	    
-            // Generate random numbers (white noise) centered around zero.
+            // 在这段范例里，我们的音频生成器生成白噪声，也就是生成一些以零为中心的随机数，振幅为0.2f，振幅太大会很吵
             const float amplitude = 0.2f;
             for (int i = 0; i < numFrames; ++i){
                 outputData[i] = ((float)drand48() - 0.5f) * 2 * amplitude;
@@ -124,34 +124,35 @@ Define an `AudioStreamCallback` class to receive callbacks whenever the stream r
             return oboe::DataCallbackResult::Continue;
         }
     };
+```
 
-You can find examples of how to play sound using digital synthesis and pre-recorded audio in the [code samples](../samples).
+您可以在示例中找到有关如何使用数字合成和预录音频播放声音的示例。 [code samples](../samples).
 
-Declare your callback somewhere that it won't get deleted while you are using it.
+在某个地方声明您的回调，使其在使用时不会被删除。
 
     MyCallback myCallback;
 
-Supply this callback class to the builder:
+然后，将此 Callback 类提供给构建器：
 
     builder.setCallback(&myCallback);
     
-Declare a ManagedStream. Make sure it is declared in an appropriate scope (e.g.the member of a managing class). Avoid declaring it as a global.
-```
+声明一个 ManagedStream。确保在适当的范围内声明了它 (例如声明为管理类的成员). 避免将其声明为全局变量。
+```c++
 oboe::ManagedStream managedStream;
 ```
-Open the stream:
+open 音频流：
 
     oboe::Result result = builder.openManagedStream(managedStream);
 
-Check the result to make sure the stream was opened successfully. Oboe has a convenience method for converting its types into human-readable strings called `oboe::convertToText`:
+检查 result 以确保音频流已成功打开。 如果出错，result 会返回错误信息，Oboe有一种方便的方法可以将错误信息转换为可读的字符串，称为 `oboe::convertToText` ，如下：
 
     if (result != oboe::Result::OK) {
         LOGE("Failed to create stream. Error: %s", oboe::convertToText(result));
     }
 
-Note that this sample code uses the [logging macros from here](https://github.com/googlesamples/android-audio-high-performance/blob/master/debug-utils/logging_macros.h).
+请注意，此示例代码使用了 [logging macros from here](https://github.com/googlesamples/android-audio-high-performance/blob/master/debug-utils/logging_macros.h).
 
-## Playing audio
+## 播放音频
 Check the properties of the created stream. If you did not specify a channelCount, sampleRate, or format then you need to 
 query the stream to see what you got. The **format** property will dictate the `audioData` type in the `AudioStreamCallback::onAudioReady` callback. If you did specify any of those three properties then you will get what you requested.
 
@@ -168,7 +169,7 @@ To stop receiving callbacks call
     
     managedStream->requestStop();
 
-## Closing the stream
+## 关闭 音频流
 It is important to close your stream when you're not using it to avoid hogging audio resources which other apps could use. This is particularly true when using `SharingMode::Exclusive` because you might prevent other apps from obtaining a low latency audio stream.
 
 Streams can be explicitly closed:
@@ -188,7 +189,7 @@ Streams can also be automatically closed when going out of scope:
 It is preferable to let the `ManagedStream` object go out of scope (or be explicitly deleted) when the app is no longer playing audio.
 For apps which only play or record audio when they are in the foreground this is usually done when [`Activity.onPause()`](https://developer.android.com/guide/components/activities/activity-lifecycle#onpause) is called.
 
-## Reconfiguring streams
+## 重新配置 音频流
 In order to change the configuration of the stream, simply call `openManagedStream`
 again. The existing stream is closed, destroyed and a new stream is built and
 populates the `managedStream`.
@@ -271,7 +272,7 @@ the stream is queried for information prior to being started (e.g. burst size),
 and started upon user input.
 For more examples on how to use `ManagedStream` look in the [samples](https://github.com/google/oboe/tree/master/samples) folder.
 
-## Obtaining optimal latency
+## 获得最佳延迟
 One of the goals of the Oboe library is to provide low latency audio streams on the widest range of hardware configurations.
 When a stream is opened using AAudio, the optimal rate will be chosen unless the app requests a specific rate. The framesPerBurst is also provided by AAudio.
 
@@ -304,6 +305,6 @@ Here's a code sample showing how to set these default values.
 
 Note that the values from Java are for built-in audio devices. Peripheral devices, such as Bluetooth may need larger framesPerBurst.
 
-# Further information
-- [Code samples](https://github.com/google/oboe/tree/master/samples)
+# 更多信息
+- [Code 范例](https://github.com/google/oboe/tree/master/samples)
 - [Full guide to Oboe](FullGuide.md)
