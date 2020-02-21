@@ -1,5 +1,5 @@
 # 1. 入门
-开始使用Oboe的最简单方法是通过向现有 Android Studio 项目添加一些步骤来从源代码构建它。
+> 开始使用Oboe的最简单方法是通过向现有 Android Studio 项目添加一些步骤来从源代码构建它。
 
 ## 创建具有 Native 支持的 Android 应用
 + 创建一个新项目: `File > New > New Project`
@@ -20,7 +20,9 @@
 
     git submodule add https://github.com/google/oboe
 
-这样可以更轻松地将 Oboe 的更新集成到您的应用中，并为 Oboe 项目做出贡献。
+![20200221234241.png](https://raw.githubusercontent.com/picofpv/picMarkdown/master/picGo/20200221234241.png)
+
+这样可以更轻松地将 Oboe 的更新集成到您的应用中(虽然这样添加 submodule 会增加很多无用的示例代码）。
 
 ### 2. 更新 CMakeLists.txt
 打开您应用的 `CMakeLists.txt`. 这文件可以在 `External Build Files` 在Android的项目视图下面找到. 如果您没有 `CMakeLists.txt` 文件，您将需要 [为您的项目添加 C++ 支持](https://developer.android.com/studio/projects/add-native-code).
@@ -67,6 +69,8 @@
 
 
 现在，通过菜单 `Build->Refresh Linked C++ Projects` 命令，使 Android Studio 为 Oboe 库编制索引。
+
+![20200221233904.png](https://raw.githubusercontent.com/picofpv/picMarkdown/master/picGo/20200221233904.png)
 
 验证您的项目正确构建。 如果您有任何建筑问题，请 [在这里报告](issues/new).
 
@@ -187,15 +191,15 @@ open 音频流：
 	
 当应用不再播放音频时,最好让 `ManagedStream` 对象超出范围 (或被明确删除) .
 对于仅在前台播放或录制音频的应用 , 通常在 [`Activity.onPause()`](https://developer.android.com/guide/components/activities/activity-lifecycle#onpause) 情况下停止播放。 
+
 ## 重新配置 音频流
-In order to change the configuration of the stream, simply call `openManagedStream`
-again. The existing stream is closed, destroyed and a new stream is built and
-populates the `managedStream`.
-```
-// Modify the builder with some additional properties at runtime.
+为了更改音频流的配置， 只需再次调用 `openManagedStream()` （前面在打开音频流时用过）. 现有音频流会被关闭，销毁，并且新建一个音频流，并且
+填充 `managedStream`.
+```c++
+// 在运行时使用一些其他属性修改构建器。
 builder.setDeviceId(MY_DEVICE_ID);
-// Re-open the stream with some additional config
-// The old ManagedStream is automatically closed and deleted
+// 使用一些其他配置重新打开音频流
+// 旧的 ManagedStream 将自动关闭并删除
 builder.openManagedStream(managedStream);
 ```
 The `ManagedStream` takes care of its own closure and destruction. If used in an
@@ -205,23 +209,22 @@ the `ManagedStream` (its enclosing class) goes out of scope whenever the app is 
 playing or recording audio, such as when `Activity.onPause()` is called.
 
 
-## Example
+## 简短的完整示例
 
-The following class is a complete implementation of a `ManagedStream`, which
-renders a sine wave. Creating the class (e.g. through the JNI bridge) creates
-and opens an Oboe stream which renders audio, and its destruction stops and
-closes the stream.
-```
+下列类是 `ManagedStream` 的完整实现， 用于播放正弦波.
+Creating the class (e.g. through the JNI bridge) 
+创建并打开一个 Oboe Stream 以渲染音频，之后销毁，停止并关闭该Stream。
+
+```c++
 #include <oboe/Oboe.h>
 #include <math.h>
 
 class OboeSinePlayer: public oboe::AudioStreamCallback {
 public:
 
-
     OboeSinePlayer() {
         oboe::AudioStreamBuilder builder;
-        // The builder set methods can be chained for convenience.
+        // 为了方便起见，构建器的设置方法可以链接在一起。
         builder.setSharingMode(oboe::SharingMode::Exclusive)
           ->setPerformanceMode(oboe::PerformanceMode::LowLatency)
           ->setChannelCount(kChannelCount)
@@ -229,7 +232,7 @@ public:
           ->setFormat(oboe::AudioFormat::Float)
           ->setCallback(this)
           ->openManagedStream(outStream);
-        // Typically, start the stream after querying some stream information, as well as some input from the user
+        // 通常，在查询一些流信息以及用户的一些输入后启动流
         outStream->requestStart();
     }
 
@@ -248,10 +251,10 @@ public:
 
 private:
     oboe::ManagedStream outStream;
-    // Stream params
+    // 音频流参数
     static int constexpr kChannelCount = 2;
     static int constexpr kSampleRate = 48000;
-    // Wave params, these could be instance variables in order to modify at runtime
+    // 正弦波参数，这些可以是实例变量，以便在运行时进行修改
     static float constexpr kAmplitude = 0.5f;
     static float constexpr kFrequency = 440;
     static float constexpr kPI = M_PI;
@@ -261,25 +264,22 @@ private:
     float mPhase = 0.0;
 };
 ```
-Note that this implementation computes  sine values at run-time for simplicity,
-rather than pre-computing them.
-Additionally, best practice is to implement a separate callback class, rather
-than managing the stream and defining its callback in the same class.
-This class also automatically starts the stream upon construction. Typically,
-the stream is queried for information prior to being started (e.g. burst size),
-and started upon user input.
-For more examples on how to use `ManagedStream` look in the [samples](https://github.com/google/oboe/tree/master/samples) folder.
+请注意，为简化起见，此实现在运行时计算正弦值，而不是预先计算它们。
+此外，最佳实践方式是写一个单独的回调类，而不是把管理流和回调放在一起在同一类中定义。
+此类也会在构建时自动启动流。
+而通常，是在启动流之前查询流以获取信息（例如，突发大小），并在用户输入时启动流。
+有关如何使用 `ManagedStream` 的更多示例，请看 [samples](https://github.com/google/oboe/tree/master/samples) 目录.
 
 ## 获得最佳延迟
-One of the goals of the Oboe library is to provide low latency audio streams on the widest range of hardware configurations.
-When a stream is opened using AAudio, the optimal rate will be chosen unless the app requests a specific rate. The framesPerBurst is also provided by AAudio.
 
-But OpenSL ES cannot determine those values. So applications should query them using Java and then pass them to Oboe. They will be used for OpenSL ES streams on older devices.
+Oboe库的目标之一是在最广泛的硬件配置上提供低延迟的音频流。
+使用 AAudio 打开流时，除非应用手动请求特定速率，否则将自动选择最佳速率。 framePerBurst 也由 AAudio 自行决定.
 
-Here's a code sample showing how to set these default values. 
+但是 OpenSL ES 无法自动确定这些值。 因此，应用程序应该使用 Java 查询它们，然后将它们通过 JNI 传递给 Oboe。这种方式将用于较旧设备上的 OpenSL ES 流。
+这是一个代码示例，显示了如何设置这些默认值。
 
-*MainActivity.java*
-
+**MainActivity.java**
+```java
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1){
         AudioManager myAudioMgr = (AudioManager) context.getSystemService(Context.AUDIO_SERVICE);
         String sampleRateStr = myAudioMgr.getProperty(AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE);
@@ -289,9 +289,11 @@ Here's a code sample showing how to set these default values.
 
 	    native_setDefaultStreamValues(defaultSampleRate, defaultFramesPerBurst);
 	}
+```
 
-*jni-bridge.cpp*
+**jni-bridge.cpp**
 
+```c++
 	JNIEXPORT void JNICALL
 	Java_com_google_sample_oboe_hellooboe_MainActivity_native_1setDefaultStreamValues(JNIEnv *env,
 	                                                                                  jclass type,
@@ -300,8 +302,9 @@ Here's a code sample showing how to set these default values.
 	    oboe::DefaultStreamValues::SampleRate = (int32_t) sampleRate;
 	    oboe::DefaultStreamValues::FramesPerBurst = (int32_t) framesPerBurst;
 	}
+```
 
-Note that the values from Java are for built-in audio devices. Peripheral devices, such as Bluetooth may need larger framesPerBurst.
+请注意，来自 Java 的值适用于内置音频设备。而外围设备（例如蓝牙）可能需要更大容量的 framesPerBurst.
 
 # 更多信息
 - [Code 范例](https://github.com/google/oboe/tree/master/samples)

@@ -1,5 +1,5 @@
-# Full Guide To Oboe
-Oboe is a C++ library which makes it easy to build high-performance audio apps on Android. Apps communicate with Oboe by reading and writing data to streams.
+# Oboe 完整指南
+Oboe是一个 C++ 库，可轻松在 Android 上构建高性能音频应用程序。Apps communicate with Oboe by reading and writing data to streams.
 
 ## Audio streams
 
@@ -482,7 +482,7 @@ AudioStream *stream;
 builder.openStream(&stream);
 ```
 
-## Thread safety
+## 线程安全性说明
 
 The Oboe API is not completely [thread safe](https://en.wikipedia.org/wiki/Thread_safety).
 You cannot call some of the Oboe functions concurrently from more than one thread at a time.
@@ -505,7 +505,7 @@ from the thread in which it is running.
 
 Code samples are available in the [samples folder](../samples).
 
-## Known Issues
+## 已知问题
 
 The following methods are defined, but will return `Result::ErrorUnimplemented` for OpenSLES streams:
 

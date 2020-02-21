@@ -2,7 +2,7 @@
 
 [![Oboe视频介绍](docs/images/getting-started-video.jpg)](https://www.bilibili.com/video/av35706771?from=search&seid=509003659581018982)
 
-Oboe是一个C ++库，可轻松在Android上构建高性能音频应用程序。 创建它主要是为了使开发人员可以定位简化的API,它可以跨多个API级别工作，甚至支持API 16(Jelly Bean，Android 4.1).
+Oboe是一个 C++ 库，可轻松在 Android 上构建高性能音频应用程序。 创建它主要是为了使开发人员可以定位简化的API,它可以跨多个API级别工作，甚至支持API 16(Jelly Bean，Android 4.1).
 
 ## 特性
 - 兼容API 16+ - 可以在99％的Android设备上运行

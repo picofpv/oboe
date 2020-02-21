@@ -1,25 +1,25 @@
-# Frequently Asked Questions (FAQ)
+# 经常问的问题 (FAQ)
 
-## Can I write audio data from Java to Oboe?
+## 我可以将音频数据从Java写入Oboe吗 ?
 
-Oboe is a native library written in C++ which uses the Android NDK. To move data from Java to C++ you can use [JNI](https://developer.android.com/training/articles/perf-jni). 
+Oboe是使用 C++ 编写的使用Android NDK的本机库。 要将数据从 Java 移到 C++ ，可以使用 [JNI](https://developer.android.com/training/articles/perf-jni). 
+而如果您真的打算使用 Java 去生成音频，更好的实践是直接去使用 [Java 的 AudioTrack class](https://developer.android.com/reference/android/media/AudioTrack). 可以使用`AudioTrack.Builder` 方法以低延迟创建 [`setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY)`](https://developer.android.com/reference/android/media/AudioTrack#PERFORMANCE_MODE_LOW_LATENCY).
 
-That said, if you are generating your audio in Java you'll get better performance using the [Java AudioTrack class](https://developer.android.com/reference/android/media/AudioTrack). This can be 
-created with low latency using the AudioTrack.Builder method [`setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY)`](https://developer.android.com/reference/android/media/AudioTrack#PERFORMANCE_MODE_LOW_LATENCY).
+您可以像使用Oboe一样动态调整流的延迟，方法是使用 [`setBufferSizeInFrames(int)`](https://developer.android.com/reference/android/media/AudioTrack.html#setBufferSizeInFrames(int))
+另外，您可以将阻塞写入与Java AudioTrack一起使用，并且仍然获得低延迟流。
+Oboe需要回调来获得低延迟流，并且不适用于Java。
 
-You can dynamically tune the latency of the stream just like in Oboe using [`setBufferSizeInFrames(int)`](https://developer.android.com/reference/android/media/AudioTrack.html#setBufferSizeInFrames(int))
-Also you can use blocking writes with the Java AudioTrack and still get a low latency stream.
-Oboe requires a callback to get a low latency stream and that does not work well with Java.
+注意 [`AudioTrack.PERFORMANCE_MODE_LOW_LATENCY`](https://developer.android.com/reference/android/media/AudioTrack#PERFORMANCE_MODE_LOW_LATENCY) 是在 API 26 时添加的功能, 而 API 24 或 25 要用 [`AudioAttributes.FLAG_LOW_LATENCY`](https://developer.android.com/reference/kotlin/android/media/AudioAttributes#flag_low_latency). 现已弃用，但仍可与更高版本的API一起使用。
 
-Note that [`AudioTrack.PERFORMANCE_MODE_LOW_LATENCY`](https://developer.android.com/reference/android/media/AudioTrack#PERFORMANCE_MODE_LOW_LATENCY) was added in API 26, For API 24 or 25 use [`AudioAttributes.FLAG_LOW_LATENCY`](https://developer.android.com/reference/kotlin/android/media/AudioAttributes#flag_low_latency). That was deprecated but will still work with later APIs.
+(话说回来,你用 Oboe 不就是为了低延迟么?用 java 的话,延迟又高回去了)
 
-## Can I use Oboe to play compressed audio files, such as MP3 or AAC?
-Oboe only works with PCM data. It does not include any extraction or decoding classes. However, the [RhythmGame sample](https://github.com/google/oboe/tree/master/samples/RhythmGame) includes extractors for both NDK and FFmpeg. 
+## 我可以使用 Oboe 播放压缩的音频文件么，例如MP3或AAC ?
+Oboe 仅适用于 PCM 数据. 它不包括任何提取或解码类。 然而 [RhythmGame sample](https://github.com/google/oboe/tree/master/samples/RhythmGame) 这个示例里 包括了 NDK 和 FFmpeg 的提取器。
 
-For more information on using FFmpeg in your app [check out this article](https://medium.com/@donturner/using-ffmpeg-for-faster-audio-decoding-967894e94e71).
+有关在应用程序中使用 FFmpeg 的更多信息 [查看这篇文章](https://medium.com/@donturner/using-ffmpeg-for-faster-audio-decoding-967894e94e71).
 
-## Android Studio doesn't find the Oboe symbols, how can I fix this?
-Start by ensuring that your project builds successfully. The main thing to do is ensure that the Oboe include paths are set correctly in your project's `CMakeLists.txt`. [Full instructions here](https://github.com/google/oboe/blob/master/docs/GettingStarted.md#2-update-cmakeliststxt).
+## Android Studio 找不到 Oboe 符号，我该如何解决?
+首先，请确保您的项目成功构建。 主要要做的是确保 Oboe 的 include 路径在项目的 `CMakeLists.txt` 文件里被正确的设置了. [完整说明在这里](https://github.com/google/oboe/blob/master/docs/GettingStarted.md#2-update-cmakeliststxt).
 
 If that doesn't fix it try the following: 
 
