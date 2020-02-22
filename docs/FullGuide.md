@@ -1,75 +1,77 @@
 # Oboe 完整指南
-Oboe是一个 C++ 库，可轻松在 Android 上构建高性能音频应用程序。Apps communicate with Oboe by reading and writing data to streams.
+Oboe是一个 C++ 库，可轻松在 Android 上构建高性能音频应用程序。应用程序通过将数据读取和写入到流里，来与Oboe通信。
 
-## Audio streams
+## 音频流
 
-Oboe moves audio data between your app and the audio inputs and outputs on your Android device. Your app passes data in and out using a callback function or by reading from and writing to *audio streams*, represented by the class `AudioStream`. The read/write calls can be blocking or non-blocking.
+Oboe 在应用程序与 Android 设备上的音频输入和输出之间移动音频数据。 您的应用使用回调函数或通过读取和写入 **Audio Stream** 来传入和传出数据， 由类 AudioStream 表示。读/写调用可以是阻塞的也可以是非阻塞的。
 
-A stream is defined by the following:
+音频流流由以下定义：
 
-*   The *audio* *device* that is the source or sink for the data in the stream.
-*   The *sharing mode* that determines whether a stream has exclusive access to an audio device that might otherwise be shared among multiple streams.
-*   The *format* of the audio data in the stream.
+*   The **audio device** ：是流中数据的源或接收器（大体可以看作是麦克风、喇叭、耳机、蓝牙什么的）
+*   The **sharing mode** ：确定一个流是否具有对音频设备的独占访问权限，否则该音频设备可能会在多个流之间共享。
+*   The **format** ：audio stream 的格式，包括数据格式、采样率、每帧的样本数量。
 
 ### Audio device
 
-Each stream is attached to a single audio device.
+无论是录音还是播放，每个音频流都依附于单个音频设备。
 
-An audio device is a hardware interface or virtual endpoint that acts as a source or sink for a continuous stream of digital audio data. Don't confuse an *audio device*
-(a built-in mic or bluetooth headset) with the *Android device* (the phone or watch) that is running your app.
+音频设备是充当连续数字音频数据流的源或的硬件接口或虚拟终结点。不要把内置麦克风或耳机这样的 **audio device**  跟正在运行您应用的手机或智能手表这样的 *Android device* 混淆了。
 
-On API 23 and above you can use the `AudioManager` method [getDevices()](https://developer.android.com/reference/android/media/AudioManager.html#getDevices(int)) to discover the audio devices that are available on your Android device. The method returns information about the [type](https://developer.android.com/reference/android/media/AudioDeviceInfo.html) of each device.
+在API 23及更高版本上，您可以使用 `AudioManager` 的 [getDevices()](https://developer.android.com/reference/android/media/AudioManager.html#getDevices(int)) 方法 来发现您 Android 设备上可用的音频设备。 该方法可以返回每个音频设备的 [type](https://developer.android.com/reference/android/media/AudioDeviceInfo.html) 信息
 
-Each audio device has a unique ID on the Android device. You can  use the ID to bind an audio stream to a specific audio device.  However, in most cases you can let Oboe choose the default primary device rather than specifying one yourself.
+每个音频设备在 Android 设备上都有唯一的 ID 。您可以使用 ID 将音频流绑定到特定的音频设备。但是，在大多数情况下，您可以让 Oboe 选择默认的主要设备，而不必自己指定一个。
 
-The audio device attached to a stream determines whether the stream is for input or output. A stream can only move data in one direction. When you define a stream you also set its direction. When you open a stream Android checks to ensure that the audio device and stream direction agree.
+附加到流的音频设备确定该流是输入还是输出。 流只能在一个方向上移动数据。定义流时，还可以设置其方向。当您打开流时，Android会检查以确保音频设备和流方向一致。
 
-### Sharing mode
+### 分享模式 Sharing mode
 
-A stream has a sharing mode:
+流具有共享模式：
 
-*   `SharingMode::Exclusive` (available on API 26+) means the stream has exclusive access to an endpoint on its audio device; the endpoint cannot be used by any other audio stream. If the exclusive endpoint is already in use, it might not be possible for the stream to obtain access to it. Exclusive streams provide the lowest possible latency by bypassing the mixer stage, but they are also more likely to get disconnected. You should close exclusive streams as soon as you no longer need them, so that other apps can access that endpoint. Not all audio devices provide exclusive endpoints. System sounds and sounds from other apps can still be heard when an exclusive stream is in use as they use a different endpoint.
+*   `SharingMode::Exclusive` (在API 26+以上可用) 表示流对音频设备上的端点具有独占访问权；该端点此时不能被再任何其他音频流使用。如果专有端点已在使用中，流可能无法访问它。独占模式音频流因为绕过了混音器步骤，可以提供尽可能低的延迟，但他们也更有可能断开连接。您应该在不再需要独占流时立即关闭它们， 以便其他应用可以访问该端点。 不是所有音频设备都能作为独占的端点。 当使用独占流时，由于它们使用不同的端点，因此仍然可以听到其他应用程序发出的系统声音。
 
-![Oboe exclusive sharing mode diagram](images/oboe-sharing-mode-exclusive.jpg)
+![Oboe 独占模式示意图](images/oboe-sharing-mode-exclusive.jpg)
 
-*   `SharingMode::Shared` allows Oboe streams to share an endpoint. The operating system will mix all the shared streams assigned to the same endpoint on the audio device.
+*   `SharingMode::Shared` （共享模式）允许 Oboe 流共享端点。操作系统将混合分配给音频设备上同一终结点的所有共享流。
 
-![Oboe exclusive sharing mode diagram](images/oboe-sharing-mode-shared.jpg)
+![Oboe 共享模式示意图](images/oboe-sharing-mode-shared.jpg)
 
 
-You can explicitly request the sharing mode when you create a stream, although you are not guaranteed to receive that mode. By default, the sharing mode is `Shared`.
+您可以在创建流时显式请求共享模式，尽管不能保证会收到共享模式。 默认情况下，共享模式设置为 `Shared`.独占模式你必须手动设置。
 
-### Audio format
+### 音频格式 Audio format
 
-The data passed through a stream has the usual digital audio attributes, which you must specify when you define a stream. These are as follows:
+通过流传递的数据具有通常的数字音频属性，在定义流时必须指定这些属性。包括如下：
 
-*   Sample format
-*   Samples per frame
-*   Sample rate
+*   样本格式 Sample format
+*   每帧样本数量 Samples per frame
+*   采样率 Sample rate
 
-Oboe permits these sample formats:
+Oboe 允许这些样本格式：
 
-| AudioFormat | C data type | Notes |
+| 音频格式 | C 语言数据类型 | 备注|
 | :------------ | :---------- | :---- |
-| I16 | int16_t | common 16-bit samples, [Q0.15 format](https://source.android.com/devices/audio/data_formats#androidFormats) |
-| Float | float | -1.0 to +1.0 |
+| I16 | int16_t | common 16-bit samples, [Q0.15 format](https://source.android.com/devices/audio/data_formats#androidFormats) -32768 到 +32767|
+| Float | float | 范围从 -1.0 to +1.0 |
 
-Oboe might perform sample conversion on its own. For example, if an app is writing AudioFormat::Float data but the HAL uses AudioFormat::I16, Oboe might convert the samples automatically. Conversion can happen in either direction. If your app processes audio input, it is wise to verify the input format and be prepared to convert data if necessary, as in this example:
+Oboe 可能会自行执行样本转换。例如，如果某个应用程序正在写入 AudioFormat::Float 数据，但 HAL 会使用 AudioFormat::I16， Oboe 可能会自动转换样本。 转换可以在任何方向发生。 如果您的应用处理音频输入，明智的做法是验证输入格式，并在必要时准备转换数据，如以下示例所示：
 
+```c++
     AudioFormat dataFormat = stream->getDataFormat();
     //... later
     if (dataFormat == AudioFormat::I16) {
          convertFloatToPcm16(...)
     }
+```
 
-## Creating an audio stream
+## 创建音频流
 
-The Oboe library follows a [builder design pattern](https://en.wikipedia.org/wiki/Builder_pattern) and provides the class `AudioStreamBuilder`.
+Oboe 库遵循 [生成器设计模式](https://en.wikipedia.org/wiki/Builder_pattern) 并提供了 `AudioStreamBuilder` 这个生成器类。
 
-### Set the audio stream configuration using an AudioStreamBuilder.
+### 使用 AudioStreamBuilder 设置音频流的配置。
 
-Use the builder functions that correspond to the stream parameters. These optional set functions are available:
+使用与流参数相对应的构建器函数,有如下设置项可用:
 
+```c++
     AudioStreamBuilder streamBuilder;
 
     streamBuilder.setDeviceId(deviceId);
@@ -79,21 +81,22 @@ Use the builder functions that correspond to the stream parameters. These option
     streamBuilder.setChannelCount(channelCount);
     streamBuilder.setFormat(format);
     streamBuilder.setPerformanceMode(perfMode);
+```
 
-Note that these methods do not report errors, such as an undefined constant or value out of range. They will be checked when the stream is opened.
+请注意，如果你设置错了，这些方法也不会向你报告错误， 例如未定义的常数或值超出范围。直到打开流的时候才会对设置进行检查。
 
-If you do not specify the deviceId, the default is the primary output device.
-If you do not specify the stream direction, the default is an output stream.
-For all parameters, you can explicitly set a value, or let the system
-assign the optimal value by not specifying the parameter at all or setting
-it to `kUnspecified`.
+* 如果您未指定device Id，默认为主要输出设备。
+* 如果未指定流方向，则默认为输出流。
+* 对于所有参数，您可以显式设置一个值，或者啥也不设置，直接让系统将其设置为最佳值 `kUnspecified`.
 
-To be safe, check the state of the audio stream after you create it, as explained in step 3, below.
+为了安全起见，请在创建音频流后检查其状态，有如下3个步骤：
 
-### Open the Stream
+### 1. 打开流 Open the Stream
 
-After you've configured the `AudioStreamBuilder`, call `openStream()` to open the stream:
+当你配置完 `AudioStreamBuilder` 后 , 调用 `openStream()` 方法来打开流:
 
+```c++
+    // 打开流，如果出问题了，就打印错误
     Result result = streamBuilder.openStream(&stream_);
     if (result != OK){
         __android_log_print(ANDROID_LOG_ERROR,
@@ -101,70 +104,54 @@ After you've configured the `AudioStreamBuilder`, call `openStream()` to open th
                             "Error opening stream %s",
                             convertToText(result));
     }
+```
 
+### 2. 验证流配置和其他属性
 
-### Verifying stream configuration and additional properties
+打开流后，应验证流的配置。
 
-You should verify the stream's configuration after opening it.
+确保以下属性被设置了。 不过，如果未指定这些属性，Oboe 仍将设置默认值，并应由适当的访问者请求。
 
-The following properties are guaranteed to be set. However, if these properties 
-are unspecified, a default value will still be set, and should be queried by the 
-appropriate accessor.
+* 用来产生数据的回调 **callback**
+* 每个回调的帧数 ？ **framesPerCallback**
+* 采样率 **sampleRate**
+* 通道数 **channelCount**
+* 数据格式 **format**
+* 方向 **direction**
 
-* callback 
-* framesPerCallback
-* sampleRate
-* channelCount
-* format
-* direction
+以下属性可能会因基础流结构而更改 *即使明确设定* 因此，应始终由适当的访问者查询。
+属性设置将取决于设备的性能。
 
-The following properties may be changed by the underlying stream construction
-*even if explicitly set* and therefore should always be queried by the appropriate
-accessor. The property settings will depend on device capabilities.
+* 帧缓冲容量 **bufferCapacityInFrames**
+* 共享模式 **sharingMode** (Exclusive 提供最低的延迟)
+* 性能模式 **performanceMode**
 
-* bufferCapacityInFrames
-* sharingMode (exclusive provides lowest latency)
-* performanceMode 
+以下属性仅由基础流设置。它们不能由应用程序设置，但应由适当的访问者查询。
 
-The following properties are only set by the underlying stream. They cannot be
-set by the application, but should be queried by the appropriate accessor.
+* 突发帧数 **framesPerBurst**
 
-* framesPerBurst
+以下属性稍有不同
 
-The following properties have unusual behavior
+* **deviceId** （指定设备ID）要在 AAudio (API level >=28) 才有效, 当使用 OpenSL ES API 时设置这个没有用. 即便不设置也没事, 并且就算在 OpenSL ES 里设置了设备 ID 也不会抛出错误。
+不管你设了啥，OpenSL ES 仍将使用默认设备。
 
-* deviceId is respected when the underlying API is AAudio (API level >=28), but not when it 
-is OpenSLES. It can be set regardless, but *will not* throw an error if an OpenSLES stream 
-is used. The default device will be used, rather than whatever is specified.
+* mAudioApi 是个只属于生成器的属性, 虽然 AudioStream::getAudioApi() 可用于查询流使用的 API 是哪种（AAudio or OpenSL ES）。
+The property set in the builder is not guaranteed, and in general, the API should be chosen by Oboe to allow for best performance and stability considerations. 
+由于Oboe被设计为尽可能在两个API之间保持统一，因此通常不需要此属性。
 
-* mAudioApi is only a property of the builder, however
-AudioStream::getAudioApi() can be used to query the underlying API which the
-stream uses. The property set in the builder is not guaranteed, and in
-general, the API should be chosen by Oboe to allow for best performance and
-stability considerations. Since Oboe is designed to be as uniform across both
-APIs as possible, this property should not generally be needed.
+* mBufferSizeInFrames （帧中缓冲区大小） 只能在已经打开的流上设置 (这与建造者该于事前设置的特征相反), 因为它取决于运行时行为。
+使用的实际大小可能不是要求的大小。Oboe 或基础 API 会把大小限制在0和缓冲区容量之间。
+还可以进一步限制缩小以减少特定设备上的毛刺。
+使用 OpenSL ES 回调时不支持此功能。
 
-* mBufferSizeInFrames can only be set on an already open stream (as opposed to a
-builder), since it depends on run-time behavior.
-The actual size used may not be what was requested.
-Oboe or the underlyng API will limit the size between zero and the buffer capacity.
-It may also be limited further to reduce glitching on particular devices.
-This features is not supported when using OpenSL ES callbacks.
+流的许多属性可能会变化 (不管你是否明确的设置了它们) ，这取决于音频设备和 Android 设备的性能。
+如果需要了解这些值，则必须在流打开后使用访问器查询它们。
+另外，流被授予的基础参数对于了解是否未指定它们很有用。
+作为良好的防御性编程，最好应在使用流之前检查流的一系列配置情况。
 
-Many of the stream's properties may vary (whether or not you set
-them) depending on the capabilities of the audio device and the Android device on 
-which it's running. If you need to know these values then you must query them using 
-the accessor after the stream has been opened. Additionally,
-the underlying parameters a stream is granted are useful to know if
-they have been left unspecified. As a matter of good defensive programming, you
-should check the stream's configuration before using it.
+有一些函数可以检索与每个构建器设置相对应的流设置：
 
-
-There are functions to retrieve the stream setting that corresponds to each
-builder setting:
-
-
-| AudioStreamBuilder set methods | AudioStream get methods |
+| AudioStreamBuilder **set()** 方法 | AudioStream **get()** 方法 |
 | :------------------------ | :----------------- |
 | `setCallback()` |  `getCallback()` |
 | `setDirection()` | `getDirection()` |
@@ -176,32 +163,25 @@ builder setting:
 | `setBufferCapacityInFrames()` | `getBufferCapacityInFrames()` |
 | `setFramesPerCallback()` | `getFramesPerCallback()` |
 |  --  | `getFramesPerBurst()` |
-| `setDeviceId()` (not respected on OpenSLES) | `getDeviceId()` |
-| `setAudioApi()` (mainly for debugging) | `getAudioApi()` |
+| `setDeviceId()` (在 OpenSL ES 无效) | `getDeviceId()` |
+| `setAudioApi()` (主要用于调试) | `getAudioApi()` |
 
-The following AudioStreamBuilder fields were added in API 28 to
-specify additional information about the AudioStream to the device. Currently, 
-they have little effect on the stream, but setting them helps applications 
-interact better with other services.
+API 28 中添加了以下 AudioStreamBuilder 字段，以指定有关设备音频流的其他信息。
+当前，它们对流的影响很小，但是设置它们可以帮助应用程序与其他服务更好地交互。
 
-For more information see: [Usage/ContentTypes](https://source.android.com/devices/audio/attributes).
-The InputPreset may be used by the device to process the input stream (such as gain control). By default 
-it is set to VoiceRecognition, which is optimized for low latency.
+有关更多信息，请参见： [用法/内容类型](https://source.android.com/devices/audio/attributes).
+设备可以使用 InputPreset 处理输入流（例如，增益控制）。默认情况下，它设置为 VoiceRecognition ，该功能针对低延迟进行了优化。
 
-* `setUsage(oboe::Usage usage)`  - The purpose for creating the stream.
-* `setContentType(oboe::ContentType contentType)` - The type of content carried
-  by the stream.
-* `setInputPreset(oboe::InputPreset inputPreset)` - The recording configuration
-  for an audio input.
-* `setSessionId(SessionId sessionId)` - Allocate SessionID to connect to the
-  Java AudioEffects API.
+* `setUsage(oboe::Usage usage)`  - 用于创建流。
+* `setContentType(oboe::ContentType contentType)` - 流所载内容的类型。
+* `setInputPreset(oboe::InputPreset inputPreset)` - 音频输入的录制配置。
+* `setSessionId(SessionId sessionId)` - 分配 SessionID 以连接到 Java Audio Effects API。
 
+## 使用音频流
 
-## Using an audio stream
+### 使用状态转换
 
-### State transitions
-
-An Oboe stream is usually in one of five stable states (the error state, Disconnected, is described at the end of this section):
+Oboe 流通常处于以下五个稳定状态之一（本节末尾描述了错误状态 Disconnected ）：
 
 *   Open
 *   Started

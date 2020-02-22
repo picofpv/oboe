@@ -21,17 +21,17 @@ Oboe 仅适用于 PCM 数据. 它不包括任何提取或解码类。 然而 [Rh
 ## Android Studio 找不到 Oboe 符号，我该如何解决?
 首先，请确保您的项目成功构建。 主要要做的是确保 Oboe 的 include 路径在项目的 `CMakeLists.txt` 文件里被正确的设置了. [完整说明在这里](https://github.com/google/oboe/blob/master/docs/GettingStarted.md#2-update-cmakeliststxt).
 
-If that doesn't fix it try the following: 
+如果仍不能解决问题，请尝试以下操作：
 
-1) Invalidate the Android Studio cache by going to File->Invalidate Caches / Restart
-2) Delete the contents of `$HOME/Library/Caches/AndroidStudio<version>`
+1) 通过 File->Invalidate Caches / Restart 使 Android Studio 缓存无效 
+2) 删除内容 `$HOME/Library/Caches/AndroidStudio<version>`
 
-We have had several reports of this happening and are keen to understand the root cause. If this happens to you please file an issue with your Android Studio version and we'll investigate further. 
+我们已经收到了有关此情况的几份报告，并且渴望了解根本原因。如果您遇到这种情况，请向您的 Android Studio 版本提出问题，我们将进行进一步调查。
 
-## I requested a stream with `PerformanceMode::LowLatency`, but didn't get it. Why not?
-Usually if you call `builder.setPerformanceMode(PerformanceMode::LowLatency)` and don't specify other stream properties you will get a `LowLatency` stream. The most common reasons for not receiving one are: 
+## 我为音频流请求了 `PerformanceMode::LowLatency` 低延迟音频流, 但为什么没有成功 ?
+通常如果你调用 `builder.setPerformanceMode(PerformanceMode::LowLatency)` 并且不指定其他流属性，您将获得 `LowLatency` 流. 而没有成功的最常见原因是：
 
-- You are opening an output stream and did not specify a **callback**.
+- 您正在打开输出流，但未指定 **callback** 回调.
 - You requested a **sample** rate which does not match the audio device's native sample rate. For playback streams, this means the audio data you write into the stream must be resampled before it's sent to the audio device. For recording streams, the  audio data must be resampled before you can read it. In both cases the resampling process (performed by the Android audio framework) adds latency and therefore providing a `LowLatency` stream is not possible. To avoid the resampler on API 26 and below you can specify a default value for the sample rate [as detailed here](https://github.com/google/oboe/blob/master/docs/GettingStarted.md#obtaining-optimal-latency).  Or you can use the [new resampler](https://google.github.io/oboe/reference/classoboe_1_1_audio_stream_builder.html#af7d24a9ec975d430732151e5ee0d1027) in Oboe, which allows the lower level code to run at the optimal rate and provide lower latency.
 - If you request **AudioFormat::Float on an Input** stream before Android 9.0 then you will **not** get a FAST track. You need to either request AudioFormat::Int16 or [enable format conversion by Oboe](https://google.github.io/oboe/reference/classoboe_1_1_audio_stream_builder.html#a7ec5f427cd6fe55cb1ce536ff0cbb4d2).
 - The audio **device** does not support `LowLatency` streams, for example Bluetooth. 
