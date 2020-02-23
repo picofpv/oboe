@@ -28,17 +28,22 @@ Oboe 仅适用于 PCM 数据. 它不包括任何提取或解码类。 然而 [Rh
 
 我们已经收到了有关此情况的几份报告，并且渴望了解根本原因。如果您遇到这种情况，请向您的 Android Studio 版本提出问题，我们将进行进一步调查。
 
-## 我为音频流请求了 `PerformanceMode::LowLatency` 低延迟音频流, 但为什么没有成功 ?
+## 我想把音频流设置为 `PerformanceMode::LowLatency` 获得低延迟, 为什么失败了?
 通常如果你调用 `builder.setPerformanceMode(PerformanceMode::LowLatency)` 并且不指定其他流属性，您将获得 `LowLatency` 流. 而没有成功的最常见原因是：
 
-- 您正在打开输出流，但未指定 **callback** 回调.
-- You requested a **sample** rate which does not match the audio device's native sample rate. For playback streams, this means the audio data you write into the stream must be resampled before it's sent to the audio device. For recording streams, the  audio data must be resampled before you can read it. In both cases the resampling process (performed by the Android audio framework) adds latency and therefore providing a `LowLatency` stream is not possible. To avoid the resampler on API 26 and below you can specify a default value for the sample rate [as detailed here](https://github.com/google/oboe/blob/master/docs/GettingStarted.md#obtaining-optimal-latency).  Or you can use the [new resampler](https://google.github.io/oboe/reference/classoboe_1_1_audio_stream_builder.html#af7d24a9ec975d430732151e5ee0d1027) in Oboe, which allows the lower level code to run at the optimal rate and provide lower latency.
-- If you request **AudioFormat::Float on an Input** stream before Android 9.0 then you will **not** get a FAST track. You need to either request AudioFormat::Int16 or [enable format conversion by Oboe](https://google.github.io/oboe/reference/classoboe_1_1_audio_stream_builder.html#a7ec5f427cd6fe55cb1ce536ff0cbb4d2).
-- The audio **device** does not support `LowLatency` streams, for example Bluetooth. 
-- You requested a **channel count** which is not supported natively by the audio device. On most devices and Android API levels it is possible to obtain a `LowLatency` stream for both mono and stereo, however, there are a few exceptions, some of which are listed [here](https://github.com/google/oboe/blob/master/docs/AndroidAudioHistory.md). 
-- The **maximum number** of `LowLatency` streams has been reached. This could be by your app, or by other apps. This is often caused by opening multiple playback streams for different "tracks". To avoid this open a single audio stream and perform 
-your own mixing in the app. 
-- You are on Android 7.0 or below and are receiving `PerformanceMode::None`. The ability to query the performance mode of a stream was added in Android 7.1 (Nougat MR1). Low latency streams (aka FAST tracks) _are available_ on Android 7.0 and below but there is no programmatic way of knowing whether yours is one. [Question on StackOverflow](https://stackoverflow.com/questions/56828501/does-opensl-es-support-performancemodelowlatency/5683499)
+1. 您正在打开输出流，但未指定 **callback** 回调.
 
-## My question isn't listed, where can I ask it?
-Please ask questions on [Stack Overflow](https://stackoverflow.com/questions/ask) with the [Oboe tag](https://stackoverflow.com/tags/oboe) or in the GitHub Issues tab.
+2. 您要求一个 **sample rate** 与音频设备的本机采样率不匹配。对于播放流，这意味着您写入流中的音频数据必须先重新采样，然后再发送到音频设备。对于录制流，必须先对音频数据进行重新采样才能读取。 在这两种情况下，重新采样过程（由Android音频框架执行）都会增加延迟，因此无法提供“ LowLatency”流。 为避免使用API​​ 26及以下版本的重新采样器，您可以为采样率指定默认值 [详细说明](https://github.com/google/oboe/blob/master/docs/GettingStarted.md#obtaining-optimal-latency).  或者您可以使用 Oboe 自带的 [新的重采样器](https://google.github.io/oboe/reference/classoboe_1_1_audio_stream_builder.html#af7d24a9ec975d430732151e5ee0d1027)  , 这允许较低级别的代码以最佳速率运行并提供较低的延迟。
+
+3. 如果您在Android 9.0之前的 input 流上请求 **AudioFormat::Float** （这个是在9.0之后才加入的），那么您将 **不会** 获得 FAST track。 您需要请求 AudioFormat::Int16 格式，或者 [启用Oboe的格式转换](https://google.github.io/oboe/reference/classoboe_1_1_audio_stream_builder.html#a7ec5f427cd6fe55cb1ce536ff0cbb4d2).
+
+4. **音频设备**不支持**低延迟**流，例如蓝牙设备。
+
+5. 您请求了音频设备本身不支持的 **通道数**。 在大多数设备和 Android API 级别上，可以为单声道和立体声获取 **LowLatency** 流，但是，有一些例外，其中有些例外 [比如这样](https://github.com/google/oboe/blob/master/docs/AndroidAudioHistory.md). 
+
+6. **LowLatency** 流的 **最大数量** 已达到。 这通常是由于为不同的 **tracks** 打开多个播放流而引起的。为避免这种情况，请只打开一个音频流，然后在应用程序中执行自己的混音。
+
+7. 您使用的是Android 7.0或更低版本，并且正在接收 **PerformanceMode::None**。在Android 7.1（Nougat MR1）中添加了查询流的性能模式的功能。在Android 7.0及更低版本上，低延迟流（又名FAST track）可用，但是没有编程的方式来知道你的这个是否属于低延迟流。[在StackOverflow的提问和答案](https://stackoverflow.com/questions/56828501/does-opensl-es-support-performancemodelowlatency/5683499)
+
+## 我的问题未列出，请问哪里？
+请在 [Stack Overflow](https://stackoverflow.com/questions/ask) 使用 [Oboe tag](https://stackoverflow.com/tags/oboe)提问，或在GitHub Issues 里提问。

@@ -189,21 +189,20 @@ Oboe 流通常处于以下五个稳定状态之一（本节末尾描述了错误
 *   Flushed
 *   Stopped
 
-Data only flows through a stream when the stream is in the Started state. To
-move a stream between states, use one of the functions that request a state
-transition:
+仅当数据流处于 **Started** 状态时，数据才流经该数据流。要在状态之间移动流，请使用下列状态转换函数：
 
+```c++
     Result result;
     result = stream->requestStart();
     result = stream->requestStop();
     result = stream->requestPause();
     result = stream->requestFlush();
+```
 
-Note that you can only request pause or flush on an output stream:
+> 请注意，您只能在输出流上请求暂停或刷新：
 
-These functions are asynchronous, and the state change doesn't happen
-immediately. When you request a state change, the stream moves toone of the
-corresponding transient states:
+这些函数是异步的，并且状态更改不会立即发生。
+当您请求状态更改时，流将移至相应的瞬态之一：
 
 *   Starting
 *   Pausing
@@ -211,34 +210,26 @@ corresponding transient states:
 *   Stopping
 *   Closing
 
-The state diagram below shows the stable states as rounded rectangles, and the transient states as dotted rectangles.
-Though it's not shown, you can call `close()` from any state
+下面的示意图里的圆角矩形表示稳定态，虚线矩形表示瞬态。
+虽然没有显示, 但您可以从任何状态调用 `close()`
 
-![Oboe Lifecycle](images/oboe-lifecycle.png)
+![Oboe 的生命周期](images/oboe-lifecycle.png)
 
-Oboe doesn't provide callbacks to alert you to state changes. One special
-function,
-`AudioStream::waitForStateChange()` can be used to wait for a state change.
-Note that most apps will not need to call `waitForStateChange()` and can just
-request state changes whenever they are needed.
+Oboe 不提供回调来提醒您状态更改。只有一种特殊情况, `AudioStream::waitForStateChange()` 可用于等待状态更改。
+请注意，大多数应用程序无需调用`waitForStateChange（）`，只在它们需要时更改状态。
 
-The function does not detect a state change on its own, and does not wait for a
-specific state. It waits until the current state
-is *different* than `inputState`, which you specify.
+该函数不会自行检测状态变化, 并且不等待特定状态。 它会等到当前状态与您指定的状态不同时才触发。
 
-For example, after requesting to pause, a stream should immediately enter
-the transient state Pausing, and arrive sometime later at the Paused state - though there's no guarantee it will.
-Since you can't wait for the Paused state, use `waitForStateChange()` to wait for *any state
-other than Pausing*. Here's how that's done:
+例如，在请求暂停后，流应立即进入过渡状态 “Pausing”，并在稍后到达 “Pausing” 状态-尽管无法保证会。
+由于您不能等待暂停状态, use `waitForStateChange()` to wait for *除暂停外的任何状态* . 以下使用方式：
 
-```
+```c++
 StreamState inputState = StreamState::Pausing;
 StreamState nextState = StreamState::Uninitialized;
 int64_t timeoutNanos = 100 * kNanosPerMillisecond;
 result = stream->requestPause();
 result = stream->waitForStateChange(inputState, &nextState, timeoutNanos);
 ```
-
 
 If the stream's state is not Pausing (the `inputState`, which we assumed was the
 current state at call time), the function returns immediately. Otherwise, it
@@ -252,7 +243,7 @@ using the corresponding transient state as the inputState. Do not call
 will be deleted as soon as it closes. And do not call `close()`
 while `waitForStateChange()` is running in another thread.
 
-### Reading and writing to an audio stream
+### 读取和写入音频流
 
 There are two ways to move data in or out of a stream.
 1) Read from or write directly to the stream.
@@ -290,7 +281,7 @@ You can prime the stream's buffer before starting the stream by writing data or 
 
 The data in the buffer must match the data format returned by `stream.getDataFormat()`.
 
-### Closing an audio stream
+### close 关闭音频流
 
 When you are finished using a stream, close it:
 
@@ -298,7 +289,7 @@ When you are finished using a stream, close it:
 
 Do not close a stream while it is being written to or read from another thread as this will cause your app to crash. After you close a stream you should not call any of its methods except for quering it properties.
 
-### Disconnected audio stream
+### Disconnected 断开音频流
 
 An audio stream can become disconnected at any time if one of these events happens:
 
@@ -327,11 +318,11 @@ Opening a seperate stream is also a valid use of this callback, especially if th
 However, it is important to note that the new audio device may have vastly different properties than the stream that was disconnected.
 
 
-## Optimizing performance
+## 优化性能
 
-You can optimize the performance of an audio application by using special high-priority threads.
+您可以使用特殊的高优先级线程来优化音频应用程序的性能。
 
-### Using a high priority callback
+### 使用高优先级 callback
 
 If your app reads or writes audio data from an ordinary thread, it may be preempted or experience timing jitter. This can cause audio glitches.
 Using larger buffers might guard against such glitches, but a large buffer also introduces longer audio latency.
@@ -413,7 +404,7 @@ The callback does a non-blocking read from the input stream placing the data int
 
 Note that in this example it is assumed the input and output streams have the same number of channels, format and sample rate. The format of the streams can be mismatched - as long as the code handles the translations properly.
 
-#### Callback do's and don'ts 
+#### callback 回调的注意事项
 You should never perform an operation which could block inside `onAudioReady`. Examples of blocking operations include:
 
 - allocate memory using, for example, malloc() or new
@@ -429,24 +420,24 @@ The following methods are OK to call:
 - AudioStream::get*()
 - oboe::convertResultToText()
 
-### Setting performance mode
+### 设定性能模式
 
-Every AudioStream has a *performance mode* which has a large effect on your app's behavior. There are three modes:
+每个 AudioStream 都有一个 **performance mode** 属性,这会对您应用的行为产生重大影响。共有三种模式：
 
-* `PerformanceMode::None` is the default mode. It uses a basic stream that balances latency and power savings.
-* `PerformanceMode::LowLatency` uses smaller buffers and an optimized data path for reduced latency.
-* `PerformanceMode::PowerSaving` uses larger internal buffers and a data path that trades off latency for lower power.
+* `PerformanceMode::None` 是默认模式。它使用基本流来平衡延迟和节能。
+* `PerformanceMode::LowLatency` 使用较小的缓冲区和优化的数据路径以减少延迟。
+* `PerformanceMode::PowerSaving` 使用较大的内部缓冲区和数据路径来权衡延迟以降低功耗。
 
-You can select the performance mode by calling `setPerformanceMode()`,
-and discover the current mode by calling `getPerformanceMode()`.
+您可以通过调用 `setPerformanceMode()` 选择性能模式 ,
+并通过调用 `getPerformanceMode()` 了解当前性能模式 .
 
-If low latency is more important than power savings in your application, use `PerformanceMode::LowLatency`.
-This is useful for apps that are very interactive, such as games or keyboard synthesizers.
+如果在应用程序中低延迟比节电更为重要， 采用 `PerformanceMode::LowLatency`.
+这对于互动性强的应用程序很有用，例如游戏或键盘合成器。
 
-If saving power is more important than low latency in your application, use `PerformanceMode::PowerSaving`.
-This is typical for apps that play back previously generated music, such as streaming audio or MIDI file players.
+如果在您的应用程序中节能比低延迟更重要， 采用 `PerformanceMode::PowerSaving`.
+这对于播放先前生成的音乐的应用程序来说很典型，例如流音频或MIDI文件播放器。
 
-In the current version of Oboe, in order to achieve the lowest possible latency you must use the `PerformanceMode::LowLatency` performance mode along with a high-priority callback. Follow this example:
+在 Oboe 的当前版本中，为了获得尽可能低的延迟，您必须使用 `PerformanceMode::LowLatency` 性能模式 along with a high-priority callback. Follow this example:
 
 ```
 // Create a callback object
@@ -464,11 +455,11 @@ builder.openStream(&stream);
 
 ## 线程安全性说明
 
-The Oboe API is not completely [thread safe](https://en.wikipedia.org/wiki/Thread_safety).
-You cannot call some of the Oboe functions concurrently from more than one thread at a time.
-This is because Oboe avoids using mutexes, which can cause thread preemption and glitches.
+Oboe API 并不是完全 [线程安全](https://en.wikipedia.org/wiki/Thread_safety) 的.
+您不能一次从一个以上的线程中同时调用某些Oboe函数。
+这是因为 Oboe 避免使用互斥锁， 这可能导致线程抢占和故障。
 
-To be safe, don't call `waitForStateChange()` or read or write to the same stream from two different threads. Similarly, don't close a stream in one thread while reading or writing to it in another thread.
+为了安全起见，请勿调用 `waitForStateChange()` 或从两个不同的线程读取或写入操作同一个流。 同样，请勿在一个线程正读取或写入流时在另一个线程中把这个流关闭。
 
 Calls that return stream settings, like `AudioStream::getSampleRate()` and `AudioStream::getChannelCount()`, are thread safe.
 
@@ -481,9 +472,9 @@ These calls are also thread safe:
 from the thread in which it is running.
 
 
-## Code samples
+## 代码示例
 
-Code samples are available in the [samples folder](../samples).
+代码示例位于 [samples 目录](../samples).
 
 ## 已知问题
 
