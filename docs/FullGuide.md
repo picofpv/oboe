@@ -231,91 +231,88 @@ result = stream->requestPause();
 result = stream->waitForStateChange(inputState, &nextState, timeoutNanos);
 ```
 
-If the stream's state is not Pausing (the `inputState`, which we assumed was the
-current state at call time), the function returns immediately. Otherwise, it
-blocks until the state is no longer Pausing or the timeout expires. When the
-function returns, the parameter `nextState` shows the current state of the
-stream.
+如果流的状态不是 “暂停” (the `inputState`, 我们假设是
+调用时的当前状态), 该函数立即返回. 除此以外, 它
+阻止，直到状态不再为“暂停”或超时到期为止。 函数返回时, 参数 `nextState` 显示流的当前状态。
 
-You can use this same technique after calling request start, stop, or flush,
-using the corresponding transient state as the inputState. Do not call
+您可以在调用请求开始后使用相同的技术, 停止或清空,使用相应的瞬态作为 `inputState` 。 Do not call
 `waitForStateChange()` after calling `AudioStream::close()` since the underlying stream resources
 will be deleted as soon as it closes. And do not call `close()`
 while `waitForStateChange()` is running in another thread.
 
 ### 读取和写入音频流
 
-There are two ways to move data in or out of a stream.
-1) Read from or write directly to the stream.
-2) Specify a callback object that will get called when the stream is ready.
+有两种方法可以将数据移入或移出流。
+1) 从流中直接 `读取` 或 `写入` 流。
+2) 为已准备好的流指定回调对象。 (这个可能更常用,因为延迟最低)
 
-The callback technique offers the lowest latency performance because the callback code can run in a high priority thread.
-Also, attempting to open a low latency output stream without an audio callback (with the intent to use writes)
-may result in a non low latency stream.
+回调技术提供了最低的延迟性能，因为回调代码可以在高优先级的线程中运行。
+因此, 尝试在没有音频回调的情况下打开低延迟输出流(比如使用写操作) 可能会导致非低延迟流。
 
-The read/write technique may be easier when you do not need low latency. Or, when doing both input and output, it is common to use a callback for output and then just do a non-blocking read from the input stream. Then you have both the input and output data available in one high priority thread.
+当您不需要低延迟时，读/写技术可能会更容易。 或者，在同时进行输入和输出时，通常使用回调进行输出，然后仅从输入流中进行非阻塞读取。然后，您可以在一个高优先级线程中获得输入和输出数据。
 
-After the stream is started you can read or write to it using the methods
+流启动后，您可以使用以下方法对其进行读写
 `AudioStream::read(buffer, numFrames, timeoutNanos)`
-and
+和
 `AudioStream::write(buffer, numFrames, timeoutNanos)`.
 
-For a blocking read or write that transfers the specified number of frames, set timeoutNanos greater than zero. For a non-blocking call, set timeoutNanos to zero. In this case the result is the actual number of frames transferred.
+对于传输指定数量的帧的阻塞读取或写入，请将timeoutNanos设置为大于零。对于非阻塞呼叫，请将timeoutNanos设置为零。在这种情况下，结果是传输的实际帧数。
 
-When you read input, you should verify the correct number of
-frames was read. If not, the buffer might contain unknown data that could cause an
-audio glitch. You can pad the buffer with zeros to create a
-silent dropout:
+读取输入时，应验证读取的帧数正确。
+否则，缓冲区可能包含未知数据，可能会导致音频故障。
+您可以使用零填充缓冲区以创建无声区：
 
+```c++
     Result result = stream.read(audioData, numFrames, timeout);
     if (result < 0) {
         // Error!
     }
     if (result != numFrames) {
-        // pad the buffer with zeros
-        memset(static_cast<sample_type*>(audioData) + result * samplesPerFrame, 0,
-               (numFrames - result) * stream.getBytesPerFrame());
+        // 用零填充缓冲区
+        // memset,memcopy,都是常用的操作
+        memset(static_cast<sample_type*>(audioData) + result * samplesPerFrame, 0 , (numFrames - result) * stream.getBytesPerFrame());
     }
+```
 
-You can prime the stream's buffer before starting the stream by writing data or silence into it. This must be done in a non-blocking call with timeoutNanos set to zero.
+您可以在启动流之前通过向其写入数据或保持静默来填充流的缓冲区。这必须在timeoutNanos设置为零的非阻塞调用中完成。
 
-The data in the buffer must match the data format returned by `stream.getDataFormat()`.
+缓冲区中的数据必须与 `stream.getDataFormat()` 返回的数据格式匹配。
 
 ### close 关闭音频流
 
-When you are finished using a stream, close it:
+使用完流后，应该将其关闭：
 
     stream->close();
 
-Do not close a stream while it is being written to or read from another thread as this will cause your app to crash. After you close a stream you should not call any of its methods except for quering it properties.
+正在将流写入,或从另一个线程读取时请不要关闭流，因为这将导致您的应用程序崩溃。
+而且关闭流后，除了查询其属性外，不应调用其任何方法。
 
 ### Disconnected 断开音频流
 
-An audio stream can become disconnected at any time if one of these events happens:
+如果发生以下事件之一，则音频流可以随时断开连接：
 
-*   The associated audio device is no longer connected (for example when headphones are unplugged).
-*   An error occurs internally.
-*   An audio device is no longer the primary audio device.
+*   关联的音频设备不再连接时 (例如拔下耳机时).
+*   内部发生错误时。
+*   音频设备不再是主要音频设备时。
 
-When a stream is disconnected, it has the state "Disconnected" and calls to `write()` or other functions will return `Result::ErrorDisconnected`.  When a stream is disconnected, all you can do is close it.
+当一个流断开连接时，它的状态为 `Disconnected`，并且对 `write()` 或其他函数的调用将返回 `Result::ErrorDisconnected`。当流断开连接时，您只能关闭它。
 
-If you need to be informed when an audio device is disconnected, write a class
-which extends `AudioStreamCallback` and then register your class using `builder.setCallback(yourCallbackClass)`.
-If you register a callback, then it will automatically close the stream in a separate thread if the stream is disconnected.
-Note that registering this callback will enable callbacks for both data and errors. So `onAudioReady()` will be called. See the "high priority callback" section below.
+如果您需要在音频设备断开连接时收到通知， 写一个扩展自 `AudioStreamCallback` 的类，然后使用 `builder.setCallback(yourCallbackClass)` 注册您的类。
+如果您注册了回调， 那么如果流断开连接，它将自动在单独的线程中关闭流。
+请注意，注册此回调将同时启用对 普通数据和错误的回调。所以 `onAudioReady()` 也将被调用。请参阅下面的 `高优先级回调` 部分。
 
-Your callback can implement the following methods (called in a separate thread): 
+您的回调可以实现以下方法（在单独的线程中调用）：
 
-* `onErrorBeforeClose(stream, error)` - called when the stream has been disconnected but not yet closed,
-  so you can still reference the underlying stream (e.g.`getXRunCount()`).
-You can also inform any other threads that may be calling the stream to stop doing so.
-Do not delete the stream or modify its stream state in this callback.
-* `onErrorAfterClose(stream, error)` - called when the stream has been stopped and closed by Oboe so the stream cannot be used and calling getState() will return closed. 
-During this callback, stream properties (those requested by the builder) can be queried, as well as frames written and read.
-The stream can be deleted at the end of this method (as long as it not referenced in other threads).
-Methods that reference the underlying stream should not be called (e.g. `getTimestamp()`, `getXRunCount()`, `read()`, `write()`, etc.).
-Opening a seperate stream is also a valid use of this callback, especially if the error received is `Error::Disconnected`. 
-However, it is important to note that the new audio device may have vastly different properties than the stream that was disconnected.
+* `onErrorBeforeClose(stream, error)` - 当流已断开但尚未关闭时调用
+  因此您仍然可以引用 underlying 流 (e.g.`getXRunCount()`).
+您还可以通知可能正在调用该流的任何其他线程停止这样做。
+不要在此回调中删除流或修改其流状态。
+* `onErrorAfterClose(stream, error)` - 当流已被 Oboe 停止并关闭时调用，因此该流无法使用，并且调用 `getState()` 将返回 closed。
+在此回调期间，可以查询流属性（由构建器请求的属性）以及写入和读取的帧。
+可以在此方法结束时删除该流（只要在其他线程中未引用该流）。
+引用底层流的方法不应该被调用（例如，getTimestamp（），getXRunCount（），read（），write（）等）。
+打开单独的流也是此回调的有效用法，特别是如果收到的错误是 `Error::Disconnected`。
+但是，重要的是要注意，新的音频设备可能具有与断开连接的流完全不同的属性。
 
 
 ## 优化性能
@@ -324,15 +321,15 @@ However, it is important to note that the new audio device may have vastly diffe
 
 ### 使用高优先级 callback
 
-If your app reads or writes audio data from an ordinary thread, it may be preempted or experience timing jitter. This can cause audio glitches.
-Using larger buffers might guard against such glitches, but a large buffer also introduces longer audio latency.
-For applications that require low latency, an audio stream can use an asynchronous callback function to transfer data to and from your app.
-The callback runs in a high-priority thread that has better performance.
+如果您的应用从普通线程读取或写入音频数据，则它可能会被抢占或出现时序抖动。这可能会导致音频故障。
+使用较大的缓冲区可能会防止此类故障，但是较大的缓冲区也会引入较长的音频延迟。
+对于要求低延迟的应用程序，音频流可以使用异步回调 callback 函数在应用程序之间传输数据。
+callback 回调在具有更高性能的高优先级线程中运行。
 
-Your code can access the callback mechanism by implementing the virtual class
-`AudioStreamCallback`. The stream periodically executes `onAudioReady()` (the
-callback function) to acquire the data for its next burst.
+您的代码可以通过实现虚拟类 `AudioStreamCallback` 来访问回调机制。
+流会定期去执行 callback 里的 `onAudioReady()` (回调函数) 为下一次突发获取数据。
 
+```c++
     class AudioEngine : AudioStreamCallback {
     public:
         DataCallbackResult AudioEngine::onAudioReady(
@@ -345,77 +342,71 @@ callback function) to acquire the data for its next burst.
 
         bool AudioEngine::start() {
             ...
-            // register the callback
+            // 注册回调
             streamBuilder.setCallback(this);
         }
     private:
-        // application data
+        // 应用数据
         Oscillator* oscillator_;
     }
+```
 
+注意，回调必须使用 `setCallback` 在流上注册。 任何特定于应用程序的数据（在上面这段示例里是 `oscillator_` ）都可以包含在类本身内。
 
-Note that the callback must be registered on the stream with `setCallback`. Any
-application-specific data (such as `oscillator_` in this case)
-can be included within the class itself.
+回调函数不应在调用它的流上执行读取或写入操作。如果回调属于输入流， 您的代码应处理 `audioData` 缓冲区中提供的数据 (指定第二个参数). 如果回调属于输出流， 您的代码应将数据放入缓冲区。
 
-The callback function should not perform a read or write on the stream that invoked it. If the callback belongs to an input stream, your code should process the data that is supplied in the audioData buffer (specified as the second argument). If the callback belongs to an output stream, your code should place data into the buffer.
+在回调中可以处理多个流。您可以使用一个流作为主流， 并在类的私有数据中传递指向其他流的指针。注册主流的回调。然后在其他流上使用非阻塞 I/O。 这里有个将输入流传递到输出流的往返回调的示例。主调用流是输出
+流。输入流包含在该类中。
 
-It is possible to process more than one stream in the callback. You can use one stream as the master, and pass pointers to other streams in the class's private data. Register a callback for the master stream. Then use non-blocking I/O on the other streams.  Here is an example of a round-trip callback that passes an input stream to an output stream. The master calling stream is the output
-stream. The input stream is included in the class.
+回调从输入流中进行非阻塞读取，将数据放入输出流的缓冲区中。(形成一个耳反的循环效果)
 
-The callback does a non-blocking read from the input stream placing the data into the buffer of the output stream.
-
+```c++
     class AudioEngine : AudioStreamCallback {
     public:
-
         oboe_data_callback_result_t AudioEngine::onAudioReady(
                 AudioStream *oboeStream,
                 void *audioData,
                 int32_t numFrames) {
-            const int64_t timeoutNanos = 0; // for a non-blocking read
+            const int64_t timeoutNanos = 0; // 非阻塞读取
             auto result = recordingStream->read(audioData, numFrames, timeoutNanos);
             // result has type ResultWithValue<int32_t>, which for convenience is coerced
             // to a Result type when compared with another Result.
             if (result == Result::OK) {
                 if (result.value() < numFrames) {
-                    // replace the missing data with silence
+                    // 用无声来替换丢失的数据
                     memset(static_cast<sample_type*>(audioData) + result.value() * samplesPerFrame, 0,
                         (numFrames - result.value()) * oboeStream->getBytesPerFrame());
-                    
                 }
                 return DataCallbackResult::Continue;
             }
             return DataCallbackResult::Stop;
         }
-
         bool AudioEngine::start() {
             ...
             streamBuilder.setCallback(this);
         }
-
         void setRecordingStream(AudioStream *stream) {
           recordingStream = stream;
         }
-
     private:
         AudioStream *recordingStream;
     }
+```
 
-
-Note that in this example it is assumed the input and output streams have the same number of channels, format and sample rate. The format of the streams can be mismatched - as long as the code handles the translations properly.
+注意，在此示例中，假定输入和输出流具有相同数量的通道，格式和采样率。流的格式可能不匹配-只要代码正确处理翻译即可。
 
 #### callback 回调的注意事项
-You should never perform an operation which could block inside `onAudioReady`. Examples of blocking operations include:
+您永远不要执行可能会阻塞 `onAudioReady` 内部的操作，一定要保证流畅。阻止操作的示例包括：
 
-- allocate memory using, for example, malloc() or new
-- file operations such as opening, closing, reading or writing
-- network operations such as streaming
-- use mutexes or other synchronization primitives
-- sleep
-- stop or close the stream
-- Call read() or write() on the stream which invoked it
+- 使用分配内存, 例如, `malloc()` or `new`
+- 文件操作，例如打开、关闭、读、写文件
+- 网络操作，例如流媒体
+- 使用互斥或​​其他同步 primitives
+- `sleep`
+- 停止或关闭流
+- 在调用它的流上调用 read() 或 write() 
 
-The following methods are OK to call:
+可以调用以下方法：
 
 - AudioStream::get*()
 - oboe::convertResultToText()
@@ -439,16 +430,16 @@ The following methods are OK to call:
 
 在 Oboe 的当前版本中，为了获得尽可能低的延迟，您必须使用 `PerformanceMode::LowLatency` 性能模式 along with a high-priority callback. Follow this example:
 
-```
-// Create a callback object
+```c++
+// 创建一个回调对象
 MyOboeStreamCallback myCallback;
 
-// Create a stream builder
+// 创建一个流构建器
 AudioStreamBuilder builder;
 builder.setCallback(myCallback);
 builder.setPerformanceMode(PerformanceMode::LowLatency);
 
-// Use it to create the stream
+// 用它来创建流
 AudioStream *stream;
 builder.openStream(&stream);
 ```
@@ -461,15 +452,15 @@ Oboe API 并不是完全 [线程安全](https://en.wikipedia.org/wiki/Thread_saf
 
 为了安全起见，请勿调用 `waitForStateChange()` 或从两个不同的线程读取或写入操作同一个流。 同样，请勿在一个线程正读取或写入流时在另一个线程中把这个流关闭。
 
-Calls that return stream settings, like `AudioStream::getSampleRate()` and `AudioStream::getChannelCount()`, are thread safe.
+调用返回流设置， 例如 `AudioStream::getSampleRate()` 和 `AudioStream::getChannelCount()`, 是线程安全的。
 
-These calls are also thread safe:
+这些调用也是线程安全的：
 
 * `convertToText()`
-* `AudioStream::get*()` except for `getTimestamp()` and `getState()`
+* `AudioStream::get*()` 除了 `getTimestamp()` 和 `getState()`
 
-<b>Note:</b> When a stream uses a callback function, it's safe to read/write from the callback thread while also closing the stream
-from the thread in which it is running.
+<b>Note:</b> 当流使用回调函数时，可以安全地从回调线程进行读取/写入，同时还关闭流
+从它运行所在的线程开始。
 
 
 ## 代码示例
